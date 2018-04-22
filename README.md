@@ -4,6 +4,7 @@ This is a very small and somewhat fast Linux shell. You can help make it smaller
 Rules:
 1) No new functions
 2) No new features
+3) No global variables
 3) Any changes must either reduce the number of lines of code or increase performance.
 
 Thanks for the help!
