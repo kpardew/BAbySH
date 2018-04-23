@@ -257,10 +257,6 @@ void cmdChangeDir(char *args[], int *status) {
 	// Find the users home directory
 	char *homeDir = getenv("HOME");	
 
-	// check for bad directory
-	// set exit status
-	// print cd: bad dir: No such file or directory
-
 	if (args[1] == NULL) {
 		// If no destination directory is specified change to home directory
 		chdir(homeDir);
