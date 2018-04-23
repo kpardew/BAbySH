@@ -14,4 +14,4 @@ The log below will track the changes based on GitHub's sloc calculation. If I ac
 
 sloc | date | contributor | speed
 ---- | ---- | ----------- | -----
-526 | 4/22/2018 | Kevin Pardew | Initial
+523 | 4/22/2018 | Kevin Pardew | Initial
