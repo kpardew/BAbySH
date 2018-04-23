@@ -1,5 +1,5 @@
 # BAbySH
-This is a very small and somewhat fast Linux shell. You can help make it smaller and faster.
+This is a very small and somewhat fast Linux shell. You can help make it smaller and faster. I am not using the word faster to refer to something that is measurable by standard benchmarks. I'm referring to the low level tricks that can help save clock cycles. If you are making one of these improvements, it will be obvious in the PR. I am user the word smaller to simply refer to lines of code. This was as terse as I could get it but, again, I know there are some tricks I don't know about that will shave off a few lines at a time.
 
 Rules:
 1) No new functions
