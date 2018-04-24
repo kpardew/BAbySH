@@ -2,8 +2,8 @@
  * Program Name: babysh.c
  * Author: Kevin Pardew
  * Description: This program is a shell to run command line instructions
- *   and return the results. This shell allows for the redirection of 
- *   standard input and output, and supports foreground and background 
+ *   and return the results. This shell allows for the redirection of
+ *   standard input and output, and supports foreground and background
  *   processes. The shell supports three built in commands: exit, cd, and
  *   status. The shell also supports comments, which are lines beginning
  *   with the # character.
@@ -22,8 +22,8 @@
 #define MAX_LINE_LENGTH 2048
 #define MAX_ARGS 512
 #define MAX_PROCESSES 100
-#define IS_PROCESS_FINISHED 0 
-#define IS_SHELL_RUNNING 1
+#define PROCESS_IS_FINISHED 0  //rvw: IS_PROCESS_FINISHED implies a question (despite it being a preprocessor define) - stylistically reworded to changed it into a statement of fact.
+#define TRUE 1                 //rvw: You're using this to drive infinite loops, suggest just going with TRUE. The IS_SHELL_RUNNING seems to imply a question that could be either true or false.
 
 // Function prototypes
 void getInput(char input[]);
@@ -51,10 +51,10 @@ int main(void) {
 
 	// Initialize bgOpen to contain non-valid process ids
 	for (i=0; i<MAX_PROCESSES; i++) {
-		bgOpen[i] = -1;
+		bgOpen[i] = -1;              //rvw: magic number, suggest #define INVALID_PROCESS -1  (or PROCESS_INVALID may match your existing style better)
 	}
 
-	// Set up a signal handler for main to ignore SIGINT. sigfillset() 
+	// Set up a signal handler for main to ignore SIGINT. sigfillset()
 	// ensures that other signals will be blocked while this signal
 	// is being processed
 	struct sigaction act;
@@ -66,15 +66,15 @@ int main(void) {
 
 
 	// Show the command prompt until user enters "exit"
-	while (IS_SHELL_RUNNING) {
+	while (TRUE) {
 		// Check for background processes
-		while (bgOpen[bgCounter] != -1) {
+		while (bgOpen[bgCounter] != -1) {             //rvw: see above magic number / INVALID_PROCESS
 			pid_t curPid = bgOpen[bgCounter];
 			pid_t wpid;
 
-			if (curPid != IS_PROCESS_FINISHED) {
+			if (curPid != PROCESS_IS_FINISHED) {
 				// Current process has not been marked completed
-				
+
 				// Check for process completion
 				wpid = waitpid(curPid, &bgStatus, WNOHANG);
 
@@ -86,8 +86,8 @@ int main(void) {
 					// The process has completed
 					printf("background pid %d is done: ", curPid);
 					fflush(stdout);
-				
-					// Print exit value of process	
+
+					// Print exit value of process
 					if (WIFEXITED(bgStatus)) {
 						printf("exit value %d\n", WEXITSTATUS(bgStatus));
 						fflush(stdout);
@@ -101,16 +101,18 @@ int main(void) {
 					}
 
 					// Mark current position in array as completed
-					bgOpen[bgCounter] = IS_PROCESS_FINISHED;
-				}	
+					bgOpen[bgCounter] = PROCESS_IS_FINISHED;
+				}
 			}
 			bgCounter++;
-		}	
+		}
 
 		// Reset counter for background processes
 		bgCounter = 0;
 
-		// Show command prompt	
+		//rvw: Do you not need to reset the bgOpen[] array to -1's.  Next command could have fewer args.
+
+		// Show command prompt
 		printf(": ");
 		fflush(stdout);
 
@@ -118,8 +120,8 @@ int main(void) {
 		getInput(userInput);
 
 		// Parse user input into list of arguments
-		parseInput(userInput, inputArgs); 
-		
+		parseInput(userInput, inputArgs);
+
 		// Process the arguments and attempt to execute any commands found
 		processArgs(inputArgs, &status, &termination, bgOpen);
 	}
@@ -131,21 +133,21 @@ int main(void) {
 
 /*************************************************************************
  *
- * Function:    getInput() 
- * 
- * Description: This function gets a line of input from the user and 
+ * Function:    getInput()
+ *
+ * Description: This function gets a line of input from the user and
  *              removes any newline character.
- * 
+ *
  * Parameters:  input - a char array
- * 
+ *
  * Returns:     None. input parameter is altered.
  *
- ************************************************************************/ 
+ ************************************************************************/
 void getInput(char input[]) {
 	char *p;
 
 	fgets(input, MAX_LINE_LENGTH, stdin);
-	
+
 	// Remove newline character if there is one
 	if ((p = strchr(input, '\n')) != 0)
 		*p = '\0';
@@ -156,16 +158,16 @@ void getInput(char input[]) {
 /*************************************************************************
  *
  * Function:    parseInput()
- * 
+ *
  * Description:	This function evaluates a line of user input and parses
  *              it into an array of arguments.
- * 
+ *
  * Parameters:  input - a char array
  *              args - an array of char*
- * 
+ *
  * Returns:     None. args parameter will be altered.
  *
- ************************************************************************/ 
+ ************************************************************************/
 void parseInput(char input[], char *args[]) {
 	int position = 0;
 	char *token;
@@ -174,13 +176,13 @@ void parseInput(char input[], char *args[]) {
 
 	while (token != NULL) {
 		// Add parsed value to array of arguments
-		args[position] = token;
+		args[position++] = token;
 		token = strtok(NULL, " ");
-		position++;
+		// position++;   //rvw: doesn't make it faster, but if your goal is fewest lines of code...
 	}
 
 	// Ensure that the final value in the array is set to null.
- 	// This will help account for blank input, and provide for a 
+ 	// This will help account for blank input, and provide for a
  	// stopping point when evaluating the arguments.
 	args[position] = NULL;
 
@@ -191,29 +193,29 @@ void parseInput(char input[], char *args[]) {
 /*************************************************************************
  *
  * Function: 	processArgs()
- * 
+ *
  * Description: This function evaluates the first string in an array of
- *              arguments. An empty string (representing a blank line of 
+ *              arguments. An empty string (representing a blank line of
  *              input) and a string beginning with '#' (the comment
- *              symbol) are ignored. All other strings are commands and 
+ *              symbol) are ignored. All other strings are commands and
  *              the function determines whether the command is built in
  *              or not. The command is sent to the appropriate function
  *              for execution.
- * 
+ *
  * Parameters:	args - an array of char*
  *              status - pointer to an int
  *              termination - pointer to an int
  *              bgOpen - an array of pid_t
- * 
+ *
  * Returns:     None.
  *
- ************************************************************************/ 
+ ************************************************************************/
 void processArgs(char *args[], int *status, int *termination, pid_t bgOpen[]) {
-	int position = 0;
+	// int position = 0;   //rvw: un-used variable
 
 
 	if (args[0] == NULL || args[0][0] == '#') {
-		// If the user input is a blank line or a commented line 
+		// If the user input is a blank line or a commented line
 		// (beginning with #), do nothing and return to the shell prompt.
 		return;
 	}
@@ -229,7 +231,7 @@ void processArgs(char *args[], int *status, int *termination, pid_t bgOpen[]) {
 	else if (strcmp(args[0], "exit") == 0) {
 		// Execute the exit command
 		cmdExit(bgOpen);
-	}	
+	}
 	else {
 		// Attempt to execute the given command
 		cmdExecute(args, status, termination, bgOpen);
@@ -240,22 +242,22 @@ void processArgs(char *args[], int *status, int *termination, pid_t bgOpen[]) {
 
 /*************************************************************************
  *
- * Function:    cmdChangeDir() 
- * 
+ * Function:    cmdChangeDir()
+ *
  * Description: This function changes the working directory to a path
  *              specified by the user. The function supports absolute
  *              and relative paths. If the path is not valid, an error
  *              message is printed.
- * 
+ *
  * Parameters:  args - an array of char*
  *              status - pointer to an int
- * 
+ *
  * Returns:     None. status parameter may be altered.
  *
- ************************************************************************/ 
+ ************************************************************************/
 void cmdChangeDir(char *args[], int *status) {
 	// Find the users home directory
-	char *homeDir = getenv("HOME");	
+	char *homeDir = getenv("HOME");
 
 	if (args[1] == NULL) {
 		// If no destination directory is specified change to home directory
@@ -276,30 +278,29 @@ void cmdChangeDir(char *args[], int *status) {
 /*************************************************************************
  *
  * Function:    cmdStatus()
- * 
+ *
  * Description: This function executes the build in command "status". If
  *              the previous command exited normally, its exit status
  *              is displayed. Otherwise, if it was terminated by a signal,
  *              a message with the signal number is displayed.
- * 
+ *
  * Parameters:  status - int
  *              termination - int
- * 
+ *
  * Returns:     None.
  *
- ************************************************************************/ 
+ ************************************************************************/
 void cmdStatus(int status, int termination) {
 	if (termination > 0) {
-		// Previous process was terminated and the termination flag was 
+		// Previous process was terminated and the termination flag was
 		// set to a valid signal, so show termination signal
 		printf("terminated by signal %d\n", termination);
-		fflush(stdout);
 	}
 	else {
 		// Previous process exited normally, so show exit status
 		printf("exit value %d\n", status);
-		fflush(stdout);
 	}
+	fflush(stdout);
 }
 
 
@@ -307,30 +308,29 @@ void cmdStatus(int status, int termination) {
 /*************************************************************************
  *
  * Function:    cmdExit()
- * 
+ *
  * Description: This function executes the build in command "exit". Before
  *              exiting the program, all background processes are killed.
- * 
+ *
  * Parameters:  bgOpen - an array of pid_t
- * 
+ *
  * Returns:     None.
  *
- ************************************************************************/ 
+ ************************************************************************/
 void cmdExit(pid_t bgOpen[]) {
 	int bgCounter = 0;
 	pid_t curPid;
 
-	// Kill running background processes	
-	while (bgOpen[bgCounter] != -1) {
-		curPid = bgOpen[bgCounter];
-	
+	// Kill running background processes
+	while (bgOpen[bgCounter] != -1) {	                    //rvw: See above comments about magic number / INVALID_PROCESS define.
+		curPid = bgOpen[bgCounter++];                       //     Think you have a risk though of walking outside the array. What if bgOpen array gets completely filled and the last element is not -1?
+
 		// Attempt to kill the current process
-		if (curPid != IS_PROCESS_FINISHED) {
-			if (kill(curPid, SIGKILL) == -1) {
+		if (curPid != PROCESS_IS_FINISHED) {
+			if (kill(curPid, SIGKILL) == -1) {              //rvw: suggest check be < 0. Some compilers may optimize it the same way, but a negative in two's complement can be determined by checking a single bit.
 				perror("kill failed");
 			}
 		}
-		bgCounter++;
 	}
 
 	exit(EXIT_SUCCESS);
@@ -341,26 +341,26 @@ void cmdExit(pid_t bgOpen[]) {
 /*************************************************************************
  *
  * Function:    cmdExecute()
- * 
- * Description: This function executes a command that is not built into 
+ *
+ * Description: This function executes a command that is not built into
  *              the shell. It determines if the process should be run in
  *              the background, and if the input or output need to be
- *              redirected. A child process is created to execute the 
+ *              redirected. A child process is created to execute the
  *              command in the foreground, or background if specified.
  *              The parent process evaluates if a foreground process
- *              exited normally or was terminated. 
- * 
+ *              exited normally or was terminated.
+ *
  * Parameters:  args - an array of char*
  *              status - pointer to an int
  *              termination - pointer to an int
  *              bgOpen - an array of pid_t
- * 
- * Returns:     None. status, termination, and bgOpen parameters may 
+ *
+ * Returns:     None. status, termination, and bgOpen parameters may
  *              be altered.
  *
- ************************************************************************/ 
+ ************************************************************************/
 void cmdExecute(char *args[], int *status, int *termination, pid_t bgOpen[]) {
-	
+
 	pid_t cpid;         // pid of child process
 	pid_t wpid;         // return value of waitpid() command
 	int waitStatus;     // value altered in waitpid() command
@@ -368,13 +368,14 @@ void cmdExecute(char *args[], int *status, int *termination, pid_t bgOpen[]) {
 	int outputFile;
 	int redirectInput = isInputRedirected(args);
 	int redirectOutput = isOutputRedirected(args);
-	int runInBackground = isBackground(args);		
+	int runInBackground = isBackground(args);
 	int bgCounter = 0;
 
-	
-	// Set input and output files for process running in background 
+
+	// Set input and output files for process running in background
 	// without input or output redirection. The file location of
 	// "/dev/null" suppresses any input or output to the process.
+	*status = EXIT_FAILURE;                                  //rvw: see below - I think there's some other rework that would be needed, but
 	if (runInBackground) {
 		if (!redirectInput)
 			inputFile = open("/dev/null", O_RDONLY);
@@ -384,16 +385,16 @@ void cmdExecute(char *args[], int *status, int *termination, pid_t bgOpen[]) {
 		if (inputFile == -1 || outputFile == -1) {
 			printf("cannot open /dev/null\n");
 			fflush(stdout);
-			*status = EXIT_FAILURE;
+			//*status = EXIT_FAILURE;                       //rvw: initialized status up top lets this line go away
 			return;
 		}
 
 		// Ensure files are closed on exec
-		fcntl(inputFile, F_SETFD, FD_CLOEXEC); 	
-		fcntl(outputFile, F_SETFD, FD_CLOEXEC); 	
+		fcntl(inputFile, F_SETFD, FD_CLOEXEC);
+		fcntl(outputFile, F_SETFD, FD_CLOEXEC);
 	}
 
-	// For commands with redirection, the file to open will be the 
+	// For commands with redirection, the file to open will be the
 	// third element in args[].
 
 	// Set input file for redirected input
@@ -403,27 +404,27 @@ void cmdExecute(char *args[], int *status, int *termination, pid_t bgOpen[]) {
 		if (inputFile == -1) {
 			printf("File Error: cannot open %s for input\n", args[2]);
 			fflush(stdout);
-			*status = EXIT_FAILURE;
+			//*status = EXIT_FAILURE;                       //rvw: initialized status up top lets this line go away
 			return;
 		}
-	
+
 		// Ensure file is closed on exec
-		fcntl(inputFile, F_SETFD, FD_CLOEXEC); 	
+		fcntl(inputFile, F_SETFD, FD_CLOEXEC);
 	}
 
 	// Set output file for redirected output
 	if (redirectOutput) {
 		outputFile = open(args[2], O_WRONLY|O_CREAT|O_TRUNC, 0644);
-		
+
 		if (outputFile == -1) {
 			printf("File Error: cannot open %s for ouput\n", args[2]);
 			fflush(stdout);
-			*status = EXIT_FAILURE;
+			//*status = EXIT_FAILURE;                       //rvw: initialized status up top lets this line go away
 			return;
 		}
-	
+
 		// Ensure file is closed on exec
-		fcntl(outputFile, F_SETFD, FD_CLOEXEC); 	
+		fcntl(outputFile, F_SETFD, FD_CLOEXEC);
 	}
 
 
@@ -432,7 +433,7 @@ void cmdExecute(char *args[], int *status, int *termination, pid_t bgOpen[]) {
 
 	if (cpid == -1) {
 		perror("fork failed");
-	}	
+	}
 	else if (cpid == 0) {
 		// Set up singnal handler to catch SIGINT in
 		// the foreground processes. sigfillset() ensures
@@ -443,7 +444,7 @@ void cmdExecute(char *args[], int *status, int *termination, pid_t bgOpen[]) {
 		act.sa_flags = 0;
 		sigfillset(&(act.sa_mask));
 
-		if (runInBackground) { 
+		if (runInBackground) {
 			// Ensure a background process is not terminated by SIGINT
 			act.sa_handler = SIG_IGN;
 		}
@@ -453,7 +454,7 @@ void cmdExecute(char *args[], int *status, int *termination, pid_t bgOpen[]) {
 
 
 		if (runInBackground) {
-			// Change input and output for processes running in background	
+			// Change input and output for processes running in background
 
 			if (dup2(inputFile, 0) == -1) {
 				perror("dup2 failed");
@@ -467,7 +468,7 @@ void cmdExecute(char *args[], int *status, int *termination, pid_t bgOpen[]) {
 		}
 		else if (redirectInput || redirectOutput) {
 			// Change input or output if redirected in foreground
-			
+
 			int redirectFd;
 
 			if (redirectInput)
@@ -499,18 +500,18 @@ void cmdExecute(char *args[], int *status, int *termination, pid_t bgOpen[]) {
 		exit(EXIT_FAILURE);
 	}
 	else if (cpid > 0) {
-		
+
 		if (runInBackground) {
 			printf("background pid is %d\n", cpid);
 			fflush(stdout);
 
 			while (bgCounter < MAX_PROCESSES) {
-				if (bgOpen[bgCounter] < 1) {
+				if (bgOpen[bgCounter] < 1) {                //rvw: magic number
 					// Add pid of background process to array.
 					// If value is 0, insert at that position.
 					// A value of -1 indicates there are no finished
 					// processes in the list.
-					bgOpen[bgCounter] = cpid;
+					bgOpen[bgCounter] = cpid;               //rvw: for the above suggestion to set *status = EXIT_FAILURE up above, think you would need to make it valid at this return.
 					return;
 				}
 				bgCounter++;
@@ -519,11 +520,11 @@ void cmdExecute(char *args[], int *status, int *termination, pid_t bgOpen[]) {
 		else {
 			// Wait for the foreground child process to finish
 			wpid = waitpid(cpid, &waitStatus, 0);
-		}		
+		}
 
 		if (wpid == -1) {
 			perror("wait failed");
-			*status = EXIT_FAILURE;
+			//*status = EXIT_FAILURE;                       //rvw: initialized status up top lets this line go away
 		}
 
 
@@ -531,7 +532,7 @@ void cmdExecute(char *args[], int *status, int *termination, pid_t bgOpen[]) {
 			// The foreground process finished execution.
 			// Save the exit status
 			*status = WEXITSTATUS(waitStatus);
-			
+
 			// Ensure termination flag is set to non-valid signal value
 			*termination = 0;
 		}
@@ -551,15 +552,15 @@ void cmdExecute(char *args[], int *status, int *termination, pid_t bgOpen[]) {
 /*************************************************************************
  *
  * Function:    isInputRedirected()
- * 
+ *
  * Description: This function searches for the "<" character to determine
  *              if a process should have its output redirected.
- * 
+ *
  * Parameters:  args - an array of char*
- * 
+ *
  * Returns:     1 if "<" is found, 0 if not.
  *
- ************************************************************************/ 
+ ************************************************************************/
 int isInputRedirected(char *args[]) {
 	int position = 0;
 
@@ -579,15 +580,15 @@ int isInputRedirected(char *args[]) {
 /*************************************************************************
  *
  * Function:    isOutputRedirected()
- * 
+ *
  * Description: This function searches for the ">" character to determine
  *              if a process should have its output redirected.
- * 
+ *
  * Parameters:  args - an array of char*
- * 
+ *
  * Returns:     1 if ">" is found, 0 if not.
  *
- ************************************************************************/ 
+ ************************************************************************/
 int isOutputRedirected(char *args[]) {
 	int position = 0;
 
@@ -596,7 +597,7 @@ int isOutputRedirected(char *args[]) {
 			return 1;
 		}
 
-		position++;
+		position++;                                      //rvw: comments in isBackground() below, could be applied here.
 	}
 
 	return 0;
@@ -606,27 +607,27 @@ int isOutputRedirected(char *args[]) {
 
 /*************************************************************************
  *
- * Function:    isBackground() 
- * 
+ * Function:    isBackground()
+ *
  * Description: This function searches for the "&" character to determine
  *              if a process should run in the background.
- * 
+ *
  * Parameters:  args - an array of char*
- * 
+ *
  * Returns:     1 if "&" is found, 0 if not.
  *
- ************************************************************************/ 
+ ************************************************************************/
 int isBackground(char *args[]) {
-	int position = 0;
+	int position = -1;										//rvw: if you start this guy at -1
 
-	while (args[position] != NULL) {
+	while (args[++position] != NULL) {                      //rvw: and pre-increment here
 		if (strcmp(args[position], "&") == 0) {
 			args[position] = NULL;
 			return 1;
 		}
 
-		position++;
-	}
+		//position++;                                       //rvw: then you could drop a line if you post-increment above
+ 	}														//rvw comment: But in general, I don't like that as it becomes more confusing - and suspect it is about the same number of assembly lines.
 
 	return 0;
 }
