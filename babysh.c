@@ -22,8 +22,9 @@
 #define MAX_LINE_LENGTH 2048
 #define MAX_ARGS 512
 #define MAX_PROCESSES 100
-#define PROCESS_IS_FINISHED 0  //rvw: IS_PROCESS_FINISHED implies a question (despite it being a preprocessor define) - stylistically reworded to changed it into a statement of fact.
-#define TRUE 1                 //rvw: You're using this to drive infinite loops, suggest just going with TRUE. The IS_SHELL_RUNNING seems to imply a question that could be either true or false.
+#define PROCESS_INVALID -1
+#define PROCESS_IS_FINISHED 0
+#define TRUE 1
 
 // Function prototypes
 void getInput(char input[]);
@@ -51,7 +52,7 @@ int main(void) {
 
 	// Initialize bgOpen to contain non-valid process ids
 	for (i=0; i<MAX_PROCESSES; i++) {
-		bgOpen[i] = -1;              //rvw: magic number, suggest #define INVALID_PROCESS -1  (or PROCESS_INVALID may match your existing style better)
+		bgOpen[i] = PROCESS_INVALID;
 	}
 
 	// Set up a signal handler for main to ignore SIGINT. sigfillset()
@@ -68,7 +69,7 @@ int main(void) {
 	// Show the command prompt until user enters "exit"
 	while (TRUE) {
 		// Check for background processes
-		while (bgOpen[bgCounter] != -1) {             //rvw: see above magic number / INVALID_PROCESS
+		while (bgOpen[bgCounter] != PROCESS_INVALID) {
 			pid_t curPid = bgOpen[bgCounter];
 			pid_t wpid;
 
@@ -109,8 +110,6 @@ int main(void) {
 
 		// Reset counter for background processes
 		bgCounter = 0;
-
-		//rvw: Do you not need to reset the bgOpen[] array to -1's.  Next command could have fewer args.
 
 		// Show command prompt
 		printf(": ");
@@ -178,7 +177,6 @@ void parseInput(char input[], char *args[]) {
 		// Add parsed value to array of arguments
 		args[position++] = token;
 		token = strtok(NULL, " ");
-		// position++;   //rvw: doesn't make it faster, but if your goal is fewest lines of code...
 	}
 
 	// Ensure that the final value in the array is set to null.
@@ -322,12 +320,12 @@ void cmdExit(pid_t bgOpen[]) {
 	pid_t curPid;
 
 	// Kill running background processes
-	while (bgOpen[bgCounter] != -1) {	                    //rvw: See above comments about magic number / INVALID_PROCESS define.
-		curPid = bgOpen[bgCounter++];                       //     Think you have a risk though of walking outside the array. What if bgOpen array gets completely filled and the last element is not -1?
+	while (bgOpen[bgCounter] != PROCESS_INVALID) {
+		curPid = bgOpen[bgCounter++];
 
 		// Attempt to kill the current process
 		if (curPid != PROCESS_IS_FINISHED) {
-			if (kill(curPid, SIGKILL) == -1) {              //rvw: suggest check be < 0. Some compilers may optimize it the same way, but a negative in two's complement can be determined by checking a single bit.
+			if (kill(curPid, SIGKILL) < 0) {
 				perror("kill failed");
 			}
 		}
@@ -375,7 +373,7 @@ void cmdExecute(char *args[], int *status, int *termination, pid_t bgOpen[]) {
 	// Set input and output files for process running in background
 	// without input or output redirection. The file location of
 	// "/dev/null" suppresses any input or output to the process.
-	*status = EXIT_FAILURE;                                  //rvw: see below - I think there's some other rework that would be needed, but
+	*status = EXIT_FAILURE;
 	if (runInBackground) {
 		if (!redirectInput)
 			inputFile = open("/dev/null", O_RDONLY);
@@ -385,7 +383,6 @@ void cmdExecute(char *args[], int *status, int *termination, pid_t bgOpen[]) {
 		if (inputFile == -1 || outputFile == -1) {
 			printf("cannot open /dev/null\n");
 			fflush(stdout);
-			//*status = EXIT_FAILURE;                       //rvw: initialized status up top lets this line go away
 			return;
 		}
 
@@ -404,7 +401,6 @@ void cmdExecute(char *args[], int *status, int *termination, pid_t bgOpen[]) {
 		if (inputFile == -1) {
 			printf("File Error: cannot open %s for input\n", args[2]);
 			fflush(stdout);
-			//*status = EXIT_FAILURE;                       //rvw: initialized status up top lets this line go away
 			return;
 		}
 
@@ -419,7 +415,6 @@ void cmdExecute(char *args[], int *status, int *termination, pid_t bgOpen[]) {
 		if (outputFile == -1) {
 			printf("File Error: cannot open %s for ouput\n", args[2]);
 			fflush(stdout);
-			//*status = EXIT_FAILURE;                       //rvw: initialized status up top lets this line go away
 			return;
 		}
 
@@ -524,7 +519,6 @@ void cmdExecute(char *args[], int *status, int *termination, pid_t bgOpen[]) {
 
 		if (wpid == -1) {
 			perror("wait failed");
-			//*status = EXIT_FAILURE;                       //rvw: initialized status up top lets this line go away
 		}
 
 
@@ -597,7 +591,7 @@ int isOutputRedirected(char *args[]) {
 			return 1;
 		}
 
-		position++;                                      //rvw: comments in isBackground() below, could be applied here.
+		position++;
 	}
 
 	return 0;
@@ -618,16 +612,15 @@ int isOutputRedirected(char *args[]) {
  *
  ************************************************************************/
 int isBackground(char *args[]) {
-	int position = -1;										//rvw: if you start this guy at -1
+	int position = 0;
 
-	while (args[++position] != NULL) {                      //rvw: and pre-increment here
+	while (args[position] != NULL) {
 		if (strcmp(args[position], "&") == 0) {
-			args[position] = NULL;
 			return 1;
 		}
 
-		//position++;                                       //rvw: then you could drop a line if you post-increment above
- 	}														//rvw comment: But in general, I don't like that as it becomes more confusing - and suspect it is about the same number of assembly lines.
+		position++;
+ 	}
 
 	return 0;
 }
