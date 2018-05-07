@@ -10,7 +10,7 @@ This is a very small and somewhat fast Linux shell. You can help make it smaller
 Thanks for the help!
 
 
-The log below will track the changes based on GitHub's sloc calculation. If I accept your PR I'll add you to the log!
+The log below tracks the changes based on GitHub's sloc calculation. If I accept your PR I'll add you to the log!
 
 sloc | date | contributor | speed
 ---- | ---- | ----------- | -----
