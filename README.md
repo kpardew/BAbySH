@@ -9,7 +9,7 @@ This is a tiny and adequately fast Linux shell. With your generous help it could
 Let's turn this into a game and have some fun!
 
 
-** GAME RULES **
+**GAME RULES:**
 1) No new functions
 2) No new features
 3) No global variables
